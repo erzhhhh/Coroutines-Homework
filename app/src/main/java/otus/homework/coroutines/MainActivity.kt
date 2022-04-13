@@ -2,12 +2,24 @@ package otus.homework.coroutines
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.activity.viewModels
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import kotlinx.coroutines.runBlocking
 
 class MainActivity : AppCompatActivity() {
 
-    lateinit var catsPresenter: CatsPresenter
-
     private val diContainer = DiContainer()
+    private val viewModel by viewModels<CatsViewModel>(factoryProducer = {
+        object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return CatsViewModel(
+                    catsFactsService = diContainer.catFactService,
+                    catsPicturesService = diContainer.catPictureService
+                ) as T
+            }
+        }
+    })
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -15,16 +27,15 @@ class MainActivity : AppCompatActivity() {
         val view = layoutInflater.inflate(R.layout.activity_main, null) as CatsView
         setContentView(view)
 
-        catsPresenter = CatsPresenter(diContainer.service)
-        view.presenter = catsPresenter
-        catsPresenter.attachView(view)
-        catsPresenter.onInitComplete()
-    }
-
-    override fun onStop() {
-        if (isFinishing) {
-            catsPresenter.detachView()
+        viewModel.catsLiveData.observe(this) {
+            when (it) {
+                is Result.Success<*> -> view.populate(it.data as CatResponse)
+                is Result.Error -> view.showToast(it.message)
+            }
         }
-        super.onStop()
+
+        view.onButtonClickListener = {
+            viewModel.onInitComplete()
+        }
     }
 }
