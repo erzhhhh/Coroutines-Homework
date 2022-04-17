@@ -2,32 +2,26 @@ package otus.homework.coroutines
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import java.lang.Exception
-import java.lang.RuntimeException
 import java.net.SocketTimeoutException
-import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-class CatsViewModel(
+class CatsPresenter(
     private val catsFactsService: CatsFactsService,
     private val catsPicturesService: CatsPicturesService
-) : ViewModel() {
+) {
 
+    private val presenterScope = CoroutineScope(Dispatchers.Main + CoroutineName("CatsCoroutine"))
     private val _catsLiveData: MutableLiveData<Result> = MutableLiveData<Result>()
     val catsLiveData: LiveData<Result> = _catsLiveData
 
-    init {
-        onInitComplete()
-    }
-
-    // при проверке ошибок почему-то только в первый раз отдает корректную ошибку, затем "Parent job is cancelling"
-    fun onInitComplete() {
-        viewModelScope.launch(CoroutineExceptionHandler { coroutineContext, throwable ->
-            CrashMonitor.trackWarning()
-        }) {
+    suspend fun onInitComplete() {
+        presenterScope.launch {
             try {
                 val factsResponse = async {
                     catsFactsService.getCatFact()
@@ -51,5 +45,9 @@ class CatsViewModel(
                 }
             }
         }
+    }
+
+    fun onClear() {
+        presenterScope.cancel()
     }
 }
